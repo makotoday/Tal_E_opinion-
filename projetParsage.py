@@ -9,12 +9,6 @@ import urllib
 import re
 from bs4 import BeautifulSoup
 
-
-# doit reconnaitre si une phrase contient une négation ou pas
-def negationDansPhrase(phrase):
-    for i in range(0,len(phrase)):
-        if("pas"==phrase[i]):
-            return True
             
 def normalise(sent, lang):
     sent = re.sub("\'\'", '"', sent) # two single quotes = double quotes
@@ -51,6 +45,19 @@ def tokenise(sent, lang):
         return tokenise_fr(sent)
     else:
         exit("Lang: "+str(lang)+" not recognised for tokenisation.\n")
+        
+def normalise(sent, lang):
+    sent = re.sub("\'\'", '"', sent) # two single quotes = double quotes
+    sent = re.sub("[`â€˜â€™]+", r"'", sent) # normalise apostrophes/single quotes
+    sent = re.sub("[â‰ªâ‰«â€œâ€]", '"', sent) # normalise double quotes
+    if lang=="en":
+        sent = re.sub("([a-z]{3,})or", r"\1our", sent) # replace ..or words with ..our words (American versus British)
+        sent = re.sub("([a-z]{2,})iz([eai])", r"\1is\2", sent) # replace ize with ise (..ise, ...isation, ..ising)
+    if lang=="fr":
+        replacements = [("keske", "qu' est -ce que"), ("estke", "est -ce que"), ("bcp", "beaucoup")] # etc.
+        for (original, replacement) in replacements:
+            sent = re.sub("(^| )"+original+"( |$)", r"\1"+replacement+r"\2", sent)
+    return sent
 
 
 def chargement(htmlsrc):
@@ -67,11 +74,66 @@ def chargement(htmlsrc):
         if(note!=0): 
             notes.append(note)
     return comments,notes
+    
+# ---------- bibliothèque de mots à enrichir ------------- #
 
+def biblioMotPositif():
+    # verbes du premier groupe positifs
+    verbePosPrem = ['aimer','adorer','interesser','divertir','sympa']
+    # liste d'adjectifs positifs
+    adjs = ['honorable','agréable','interessant','spectaculaire','émouvant','bien','bon','bonne','heureux']
+    motsPos = []
+    motsPos.append(verbePosPrem)
+    motsPos.append(adjs)
+    return motsPos
+    
+def biblioMotNegatif():
+    motsNegPrem = []
+    motsNegPrem.appends('détester','plomber')
+    #liste d'adjectif negatis
+    adjs = ['défault','déception','décevant','mauvais','nul']
+    motsNeg = []
+    motsNeg.append(motsNegPrem)
+    motsNeg.append(adjs)
+    return motsNeg
+    
+# mots précédant appuyant l'adjectif
+def EvalmotAppuie():
+    motsAppFort = ['trés','sacré','vraiment']
+    motsAppMoyen = ['assez','plutôt']    
 
+    # doit reconnaitre si une phrase contient une négation ou pas
+def negationDansPhrase(phrase):
+    negainv = ['pas','trop','sans']
+    negavar = ['aucun']
+    for j in range(0,len(negainv)), k in range(0,len(negavar)):
+        for i in range(0,len(phrase)):
+            if(negainv[j]==phrase[i] or negavar[k]==phrase[i]):
+                return True
+    return False
+#aucune deception sans innovation
+# expr positif vaut le coup
+
+# --------------fin bibliotheque --------------------#
+
+def segment_into_sents(paragraph):
+
+    cannot_precede = ["M", "Prof", "Sgt", "Lt", "Ltd", "co", "etc", "[A-Z]", "[Ii].e", "[eE].g"] # non-exhaustive list
+    regex_cannot_precede = "(?:(?<!"+")(?<!".join(cannot_precede)+"))"
+    
+    if "\n" in paragraph: exit("Error in paragraph: paragraph contains \n.")       
+    newline_separated = re.sub(regex_cannot_precede+"([\.\!\?]+([\'\â€™\"\)]*( |$)| [\'\â€™\"\) ]*))", r"\1\n", paragraph)
+    sents = newline_separated.strip().split("\n")
+    for s, sent in enumerate(sents):
+        sents[s] = sent.strip()
+    return sents
+
+def testComment():
+    far = []
+            
 if __name__=="__main__":
     
-    #page allocine
+    # page allocine
     sock = urllib.request.urlopen("http://www.allocine.fr/film/fichefilm-226739/critiques/spectateurs/")
     src = sock.read()
     sock.close()
@@ -79,13 +141,18 @@ if __name__=="__main__":
     notes = []
     comments, notes = chargement(src)
     
+    commentsTok = []
+    for c in enumerate (comments): 
+        phrases = segment_into_sents(str(c))
+
+        sentsTok = []
+        for i in range(0,len(phrases)):   
+            phrases[i] = normalise(phrases[i],"fr")
+            phrases[i] = tokenise(phrases[i],"en")
+            sentsTok.append(phrases[i])
+        commentsTok.append(sentsTok)
+        print(sentsTok)
     
-    for i in range(0,len(comments)):   
-        print(comments[i])
-        print(notes[i])
     
-    sents = []
-    for i in range(0,len(comments)):     
-        sents.append(tokenise(comments[i],"en"))
     
-    print(sents)
+    
