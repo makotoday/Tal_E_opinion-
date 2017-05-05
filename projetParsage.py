@@ -143,8 +143,10 @@ if __name__=="__main__":
     
     commentsTok = []
     for c in enumerate (comments): 
-        phrases = segment_into_sents(str(c))
-
+        cstr = str(c)
+        cstr = cstr.replace('\\n','')
+        cstr = cstr.replace('\\','')
+        phrases = segment_into_sents(cstr)
         sentsTok = []
         for i in range(0,len(phrases)):   
             phrases[i] = normalise(phrases[i],"fr")
@@ -152,7 +154,7 @@ if __name__=="__main__":
             sentsTok.append(phrases[i])
         commentsTok.append(sentsTok)
         print(sentsTok)
-    
-    
-    
+        print("coment ",commentsTok[0])
+        print("phrase",commentsTok[0][0] )
+        print("token",commentsTok[0][0][0] )
     
