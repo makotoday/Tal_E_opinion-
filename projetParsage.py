@@ -43,8 +43,7 @@ def biblioMotPositif():
     return motsPos
     
 def biblioMotNegatif():
-    motsNegPrem = []
-    motsNegPrem.appends('détester','plomber')
+    motsNegPrem = ['détester','plomber']
     #liste d'adjectif negatis
     adjs = ['défault','déception','décevant','mauvais','nul']
     motsNeg = []
@@ -52,7 +51,7 @@ def biblioMotNegatif():
     motsNeg.append(adjs)
     return motsNeg
     
-# mots précédant appuyant l'adjectif
+# mots précédant appuyant l'adjectif (augmente le poids)
 def EvalmotAppuie():
     motsAppFort = ['trés','sacré','vraiment']
     motsAppMoyen = ['assez','plutôt']    
@@ -72,34 +71,68 @@ def negationDansPhrase(phrase):
 # --------------fin bibliotheque --------------------#
 
 def containVerbePrem(verbe, phrase):
-    verbe = verbe[:-2] #enleve les 2 derniers caractères
-    regex = re.compile(".*? "+verbe+"(e|es|ent|ons|ez|ent).*?", re.I)
+    # la phrase non tokenisé :
     phr = ""
     for p in phrase:
-        phr = phr+p+' '
+        phr = phr+str(p)+' '
+    #present [:-2] enleve les 2 derniers caractères (er)
+    regex = re.compile("(.*?)"+verbe[:-2]+"(e|es|ent|ons|ez|ent).*?", re.I)
     match_obj = re.match(regex, phr)
-    # what is captured by the brackets
+    if match_obj!= None: return True
+    #participe passée    
+    regex = re.compile("(.*?)"+verbe[:-2]+"(é|ée|és|ées).*?",re.I)
+    match_obj = re.match(regex, phr)
+    if match_obj!= None:       
+        return True
+ # what is captured by the brackets
 #    mot = match_obj.string
 #    preceding = match_obj.group(1)
 #    suffix = match_obj.group(2)
-    if match_obj!= None:
-        print("contains the verb ’"+verbe+"er"+"’ in the present tense")
+    
+    return False
 
-def testComment(comment):
-    biblioMotPositif();
+def containMot(mot, phrase):
+    for i in range(0,len(phrase)):
+        if(mot==phrase[i]): return True
+    return False   
+
+def analyseComment(comment):
+    motsPos = biblioMotPositif()
+    motsNeg = biblioMotNegatif()
+    evalu = 0
     # test negation
     for phrase  in enumerate (comment):
-        phrase
+        for verbe in enumerate(motsPos[0]):
+            if(containVerbePrem(verbe[1],phrase)):
+                evalu+=1
+        for verbe2 in enumerate(motsNeg[0]):
+            if(containVerbePrem(verbe2[1],phrase)):
+                evalu-=1
+        for adj in enumerate(motsPos[1]):
+            if(containMot(adj[1],phrase)):
+                evalu+=1
+        for adj2 in enumerate(motsNeg[1]):
+            if(containMot(adj2[1],phrase)):
+                evalu-=1
+    return evalu
             
 if __name__=="__main__":
     
-    # page allocine
-    sock = urllib.request.urlopen("http://www.allocine.fr/film/fichefilm-226739/critiques/spectateurs/")
-    src = sock.read()
-    sock.close()
+    # pages allocine
+    sources = ["http://www.allocine.fr/film/fichefilm-226739/critiques/spectateurs/",
+    "http://www.allocine.fr/film/fichefilm-229678/critiques/spectateurs/",
+    "http://www.allocine.fr/film/fichefilm-249110/critiques/spectateurs/"]
+    
     comments = []
     notes = []
-    comments, notes = chargement(src)
+    for i in range(0,len(sources)):
+        sock = urllib.request.urlopen(sources[i])
+        src = sock.read()
+        sock.close()
+        commentsFilm, notesFilm = chargement(src)
+        comments+=commentsFilm
+        notes+= notesFilm
+        
     
     commentsTok = []
     for c in enumerate(comments): 
@@ -112,8 +145,10 @@ if __name__=="__main__":
             sentsTok.append(phrases[i])
         commentsTok.append(sentsTok)
 
+    i = 0;
     for comment in commentsTok:
+        evalcom = 0;
         for phrase in comment:
-            containVerbePrem('aller',phrase)
-        
-    
+            evalcom += analyseComment(phrase)
+        print("comment"+str(i)+"  :"+str(evalcom)+ " vs note :"+str(notes[i]))
+        i+=1
