@@ -4,7 +4,6 @@ Created on Thu May  4 21:52:58 2017
 
 @author: Sébastien
 """
-
 import urllib
 import fonctionsTokenise as ftok
 import re
@@ -59,10 +58,13 @@ def EvalmotAppuie():
     # doit reconnaitre si une phrase contient une négation ou pas
 def negationDansPhrase(phrase):
     negainv = ['pas','trop','sans']
-    negavar = ['aucun']
-    for j in range(0,len(negainv)), k in range(0,len(negavar)):
-            if(negainv[j] in phrase or negavar[k] in phrase[i]):
+    negavar = ['aucun', 'aucune']
+    for j in range(0,len(negainv)):
+            if(negainv[j] in phrase):
                 return True
+    for k in range(0,len(negavar)):
+        if(negavar[k] in phrase):
+            return True
     
     return False
 #aucune deception sans innovation
@@ -115,6 +117,129 @@ def analyseComment(comment):
             if(containMot(adj2[1],phrase)):
                 evalu-=1
     return evalu
+    
+    #---------------Début méthode permettant l'apprentissage------------------#
+#la methode calcule le pourcentage de phrase  négatif dans le commentaire 
+def ProbNCommentaire(commentaire):
+    nbligne = len(commentaire); 
+    nb_ligneN = 0.0
+    for  phrase in commentaire: 
+        if(negationDansPhrase(phrase)==True):
+            nb_ligneN=nb_ligneN+1
+    return (nb_ligneN/nbligne)
+    
+#-------------Fin méthode  permettant l'apprentissage----------------------#
+#-------------methode teste------------------------------------------------#
+def testNegation(commentaire,tauxNegatif,note_commentaire):
+    taux=ProbNCommentaire(commentaire)
+    if(taux<tauxNegatif):
+        print("bon commentaire\t TN:"+str(taux)+"\t Note C:"+str(note_commentaire))
+
+        
+def ImportList(pathfile):
+      liste=[]
+      mot_list=[]
+      with open(pathfile, "r") as filepointer:
+         for line in filepointer.readlines():
+            if line.strip()=="": continue # ignore blank paragraphs
+            new_line=line.strip(',')
+            tmp=ftok.segment_into_sents(new_line.strip())            
+            liste=tmp+liste # remove whitespace with strip()
+         for mot in liste:
+            tmp=ftok.normalise(mot,"fr")
+            tmp=ftok.tokenise(tmp,"en")
+            mot_list.append(tmp)
+      return liste
+
+def AnalyseComment2(comment,motsPos,motsNeg):
+    prob_p=0
+    prob_n=0
+    mot_total=0
+    for phrase in comment:
+        mot_total+=len(phrase)
+        for verbe in enumerate(motsPos[0]):
+            if(containVerbePrem(verbe[1],phrase)):
+                prob_p+=1
+        for verbe2 in enumerate(motsNeg[0]):
+            if(containVerbePrem(verbe2[1],phrase)):
+                prob_n+=1
+                
+        for adj in enumerate(motsPos[1]):
+            if(containMot(adj[1],phrase)):
+                prob_p+=1
+        for adj2 in enumerate(motsNeg[1]):
+            if(containMot(adj2[1],phrase)):
+                prob_n+=1
+        for mot in enumerate(motsPos[2]):
+            if(containMot(mot,phrase)):
+                prob_p+=1
+        for mot in enumerate(motsNeg[2]):
+            if(containMot(mot,phrase)):
+                prob_n+=1
+                
+    taux_p=prob_p/mot_total
+    taux_n=prob_n/mot_total
+    print("prob_p :"+str(prob_p)+"   prob_n  :"+str(prob_n))
+    if(prob_p>prob_n):
+        return True
+    else :
+        return False 
+
+def AnalyseComment3(comment,motsPos,motsNeg):
+    prob_p=0
+    prob_n=0
+    mot_total=0
+    for phrase in comment:
+        mot_total+=len(phrase)
+        for verbe in enumerate(motsPos[0]):
+            if(containVerbePrem(verbe[1],phrase)):
+                prob_p+=1
+        for verbe2 in enumerate(motsNeg[0]):
+            if(containVerbePrem(verbe2[1],phrase)):
+                prob_n+=1
+                
+        for adj in enumerate(motsPos[1]):
+            if(containMot(adj[1],phrase)):
+                prob_p+=1
+        for adj2 in enumerate(motsNeg[1]):
+            if(containMot(adj2[1],phrase)):
+                prob_n+=1
+        for mot in enumerate(motsPos[2]):
+            if(containMot(mot,phrase)):
+                prob_p+=1
+        for mot in enumerate(motsNeg[2]):
+            if(containMot(mot,phrase)):
+                prob_n+=1
+                
+    list_prob=[prob_p,prob_n]
+    return list_prob
+    
+
+
+
+
+def Decision(comment,motPos,motNeg):
+    poid_p=0
+    poid_n=0
+    prob=AnalyseComment3(comment,motPos,motNeg)
+    prob_cn=ProbNCommentaire(comment)
+    if(prob[0]-prob[1]>1): poid_p+=1
+    else : poid_n+=1
+    if(prob_cn<0.5): poid_p+=1
+    else : poid_n+=1
+    taux=prob_cn-0.5
+    if(taux>0.0):
+        poid_n+=1
+        poid_n+=taux*10
+    else : 
+        poid_p+=1
+        poid_p+=1
+    liste=[poid_p,poid_n]
+    return liste
+    
+    
+    
+#-----------fin methode teste----------------------------------------------#
             
 if __name__=="__main__":
     
@@ -152,3 +277,30 @@ if __name__=="__main__":
             evalcom += analyseComment(phrase)
         print("comment"+str(i)+"  :"+str(evalcom)+ " vs note :"+str(notes[i]))
         i+=1
+    print("-------------SECOND ANALYSE ----------------------------------")
+    motPos=biblioMotPositif()
+    motNeg=biblioMotNegatif()
+    motN_import=ImportList("mot_negatif.txt")+ImportList("adj_negatif.txt")
+    motP_import=ImportList("adj_positif.txt")
+    motPos.append(motP_import)
+    motNeg.append(motP_import)
+    k=0
+    for comment in commentsTok:
+        if(AnalyseComment2(comment,motPos,motNeg)==True):
+            print("comment"+str(k)+"  :"+"Programme dit avis Positif "+ " vs note :"+str(notes[k])) 
+        else :
+            print("comment"+str(k)+"  :"+"Programme dit avis Negatif "+" vs note :"+str(notes[k]))
+        k+=1
+    
+    print("------------TROSIEME ANALYSE ----------------------")
+    z=0
+    for comment in commentsTok:
+        tmp=Decision(comment,motPos,motNeg)
+        if(tmp[0]>tmp[1]):
+            print("comment"+str(z)+" : poid P "+str(tmp[0])+" poid N "+str(tmp[1])+"Avis Bon  vs note : " +str(notes[z]))
+        else :
+            print("comment"+str(z)+" : poid P "+str(tmp[0])+" poid N "+str(tmp[1])+"Avis Negative  vs note : " +str(notes[z]))
+        z+=1
+
+    
+    
