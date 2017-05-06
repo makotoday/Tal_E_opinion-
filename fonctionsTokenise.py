@@ -43,18 +43,6 @@ def tokenise(sent, lang):
     else:
         exit("Lang: "+str(lang)+" not recognised for tokenisation.\n")
         
-def normalise(sent, lang):
-    sent = re.sub("\'\'", '"', sent) # two single quotes = double quotes
-    sent = re.sub("[`â€˜â€™]+", r"'", sent) # normalise apostrophes/single quotes
-    sent = re.sub("[â‰ªâ‰«â€œâ€]", '"', sent) # normalise double quotes
-    if lang=="en":
-        sent = re.sub("([a-z]{3,})or", r"\1our", sent) # replace ..or words with ..our words (American versus British)
-        sent = re.sub("([a-z]{2,})iz([eai])", r"\1is\2", sent) # replace ize with ise (..ise, ...isation, ..ising)
-    if lang=="fr":
-        replacements = [("keske", "qu' est -ce que"), ("estke", "est -ce que"), ("bcp", "beaucoup")] # etc.
-        for (original, replacement) in replacements:
-            sent = re.sub("(^| )"+original+"( |$)", r"\1"+replacement+r"\2", sent)
-    return sent
 
 def segment_into_sents(paragraph):
     
